@@ -190,4 +190,93 @@ elif menu == "🏷️ Upload Currículos":
                 - **Pontuação:** {analise_ia.get("pontuacao", 0)}/100
                 - **Justificativa:** {analise_ia.get("justificativa_pontuacao", "N/A")}
                 - **Habilidades:** {", ".join(analise_ia.get("habilidades_tecnicas", [])) or 'Nenhuma detectada'}
-                - **Certificações:** {", ".join(analise_
+                - **Certificações:** {", ".join(analise_ia.get("certificacoes", [])) or 'Nenhuma detectada'}
+                
+                ✅ **Status:** {analise_ia.get("status_recomendacao", "Revisão Manual")}
+                """
+                
+                novos_dados.append({
+                    "Nome": arquivo.name,
+                    "Pontuação": analise_ia.get("pontuacao", 0),
+                    "Status": analise_ia.get("status_recomendacao", "Revisão Manual"),
+                    "Análise Completa": texto,
+                    "ResumoIA": resumo_tecnico,
+                    "Data de Upload": date.today()
+                })
+        
+        if novos_dados:
+            df_novos = pd.DataFrame(novos_dados)
+            st.session_state["df_analise"] = pd.concat([st.session_state["df_analise"], df_novos], ignore_index=True)
+            salvar_dados_analisados(st.session_state["df_analise"])
+            salvar_curriculos(arquivos)
+
+
+elif menu == "🚀 Analisador Excellence Big Tech":
+    st.title("🚀 Analisador Virtual — Excellence Big Tech")
+    
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("Filtros de Análise")
+    
+    df = st.session_state.get("df_analise", pd.DataFrame())
+    
+    if df.empty:
+        st.warning("⚠️ Nenhum currículo encontrado. Faça o upload na seção 'Upload Currículos'.")
+    else:
+        status_filtro = st.sidebar.selectbox(
+            "Filtrar por Status",
+            ["Todos"] + list(df["Status"].unique())
+        )
+        
+        hoje = date.today()
+        data_filtro = st.sidebar.date_input("Filtrar por Data de Upload", value=hoje)
+        
+        df_filtrado = df.copy()
+
+        if status_filtro != "Todos":
+            df_filtrado = df_filtrado[df_filtrado["Status"] == status_filtro]
+        
+        df_filtrado['Data de Upload'] = pd.to_datetime(df_filtrado['Data de Upload']).dt.date
+        df_filtrado = df_filtrado[df_filtrado['Data de Upload'] == data_filtro]
+
+        st.markdown("---")
+        st.markdown("## 📋 Resultados da Análise")
+        if not df_filtrado.empty:
+            for idx, row in df_filtrado.iterrows():
+                col1, col2 = st.columns([0.85, 0.15])
+                
+                with col1:
+                    with st.expander(f"📄 {row['Nome']} - Status: {row['Status']}"):
+                        st.markdown(row['ResumoIA'], unsafe_allow_html=True)
+                        st.write("---")
+                        st.markdown("### Conteúdo Completo do Currículo")
+                        st.write(row['Análise Completa'])
+                
+                with col2:
+                    if st.button("🗑️ Excluir", key=f"excluir_{row['Nome']}"):
+                        df_temp = st.session_state["df_analise"]
+                        st.session_state["df_analise"] = df_temp[df_temp["Nome"] != row["Nome"]]
+                        salvar_dados_analisados(st.session_state["df_analise"])
+                        st.experimental_rerun()
+        else:
+            st.warning("Nenhum currículo encontrado com os filtros aplicados.")
+
+elif menu == "📅 RHday":
+    st.title("📅 RHday — Agenda da Recrutadora")
+    data = st.date_input("📅 Data")
+    hora = st.time_input("⏰ Horário")
+    nota = st.text_area("📝 Anotação da reunião/entrevista:")
+
+    if st.button("💾 Salvar Evento"):
+        if "agenda" not in st.session_state:
+            st.session_state["agenda"] = []
+        st.session_state["agenda"].append({
+            "data": str(data),
+            "hora": str(hora),
+            "nota": nota
+        })
+        st.success(f"Evento salvo para {data} às {hora}.")
+
+    if "agenda" in st.session_state and st.session_state["agenda"]:
+        st.markdown("### 📌 Eventos Agendados:")
+        for item in st.session_state["agenda"]:
+            st.info(f"📅 {item['data']} ⏰ {item['hora']} — {item['nota']}")
